@@ -56,13 +56,18 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
       appBar: AppBar(
         title: const Text('ClinicSync'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('No new alerts')),
-              );
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'appointment') {
+                _showAddAppointmentDialog();
+              } else if (value == 'queue') {
+                _showAddQueueDialog();
+              }
             },
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'appointment', child: Text('Add appointment')),
+              PopupMenuItem(value: 'queue', child: Text('Add queue patient')),
+            ],
           ),
         ],
       ),
@@ -78,10 +83,18 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
           NavigationDestination(icon: Icon(Icons.people_outline), label: 'Queue'),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAddAppointmentDialog,
+        icon: const Icon(Icons.add),
+        label: const Text('New appointment'),
+      ),
     );
   }
 
   Widget _buildDashboard() {
+    final checkedInCount = _appointments.where((item) => item.status == 'Checked In').length;
+    final waitingCount = _queue.where((item) => item.status == 'Waiting').length;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -95,9 +108,9 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
             spacing: 12,
             runSpacing: 12,
             children: [
-              _summaryCard('Appointments', '12', Icons.calendar_today_outlined),
-              _summaryCard('Checked In', '7', Icons.check_circle_outline),
-              _summaryCard('Waiting', '5', Icons.hourglass_top_outlined),
+              _summaryCard('Appointments', '${_appointments.length}', Icons.calendar_today_outlined),
+              _summaryCard('Checked In', '$checkedInCount', Icons.check_circle_outline),
+              _summaryCard('Waiting', '$waitingCount', Icons.hourglass_top_outlined),
             ],
           ),
           const SizedBox(height: 20),
@@ -171,9 +184,13 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
                   children: [
                     Chip(label: Text(appointment.status)),
                     const SizedBox(height: 4),
-                    Text(
-                      appointment.status == 'Pending' ? 'Needs review' : 'Ready',
-                      style: const TextStyle(fontSize: 12),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          appointment.status = appointment.status == 'Pending' ? 'Confirmed' : 'Checked In';
+                        });
+                      },
+                      child: const Text('Advance'),
                     ),
                   ],
                 ),
@@ -241,30 +258,160 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
       ),
     );
   }
+
+  Future<void> _showAddAppointmentDialog() async {
+    final nameController = TextEditingController();
+    final doctorController = TextEditingController();
+    final timeController = TextEditingController();
+    String status = 'Confirmed';
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('New appointment'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Patient name'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: doctorController,
+                decoration: const InputDecoration(labelText: 'Doctor'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: timeController,
+                decoration: const InputDecoration(labelText: 'Time'),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: status,
+                items: const [
+                  DropdownMenuItem(value: 'Confirmed', child: Text('Confirmed')),
+                  DropdownMenuItem(value: 'Checked In', child: Text('Checked In')),
+                  DropdownMenuItem(value: 'Pending', child: Text('Pending')),
+                ],
+                onChanged: (value) {
+                  status = value ?? 'Confirmed';
+                },
+                decoration: const InputDecoration(labelText: 'Status'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (nameController.text.trim().isNotEmpty) {
+                  setState(() {
+                    _appointments.add(
+                      Appointment(
+                        patientName: nameController.text.trim(),
+                        time: timeController.text.trim().isEmpty ? 'TBD' : timeController.text.trim(),
+                        status: status,
+                        doctor: doctorController.text.trim().isEmpty ? 'Assigned doctor' : doctorController.text.trim(),
+                      ),
+                    );
+                  });
+                }
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showAddQueueDialog() async {
+    final nameController = TextEditingController();
+    String priority = 'Normal';
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Add queue patient'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Patient name'),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: priority,
+                items: const [
+                  DropdownMenuItem(value: 'Urgent', child: Text('Urgent')),
+                  DropdownMenuItem(value: 'Normal', child: Text('Normal')),
+                ],
+                onChanged: (value) {
+                  priority = value ?? 'Normal';
+                },
+                decoration: const InputDecoration(labelText: 'Priority'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (nameController.text.trim().isNotEmpty) {
+                  setState(() {
+                    _queue.add(
+                      QueuePatient(
+                        name: nameController.text.trim(),
+                        priority: priority,
+                        status: 'Waiting',
+                      ),
+                    );
+                  });
+                }
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 class Appointment {
-  const Appointment({
+  Appointment({
     required this.patientName,
     required this.time,
     required this.status,
     required this.doctor,
   });
 
-  final String patientName;
-  final String time;
-  final String status;
-  final String doctor;
+  String patientName;
+  String time;
+  String status;
+  String doctor;
 }
 
 class QueuePatient {
-  const QueuePatient({
+  QueuePatient({
     required this.name,
     required this.priority,
     required this.status,
   });
 
-  final String name;
-  final String priority;
-  final String status;
+  String name;
+  String priority;
+  String status;
 }
