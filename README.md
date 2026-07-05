@@ -32,7 +32,16 @@ flutter pub get
 flutter run
 ```
 
-## Repository Notes
+## Features
 
+- Appointment scheduling with status updates
+- Clinic queue management with priority and progress status
+- Search and filter for both appointments and queue patients
+- Edit and delete workflow entries
+- Local persistence using shared preferences
+
+## Notes
+
+- Data is stored locally on the device between sessions.
 - Default branch: `main`
 - Development branch: `dev`

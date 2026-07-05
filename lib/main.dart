@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const ClinicSyncApp());
@@ -35,6 +38,10 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
   String _appointmentStatusFilter = 'All';
   String _queueSearch = '';
   String _queueStatusFilter = 'All';
+  bool _isLoading = true;
+
+  static const _appointmentsKey = 'clinic_sync_appointments';
+  static const _queueKey = 'clinic_sync_queue';
 
   final List<Appointment> _appointments = [
     Appointment(
@@ -78,6 +85,52 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
   static const _priorityOptions = ['Urgent', 'Normal'];
 
   @override
+  void initState() {
+    super.initState();
+    _loadSavedData();
+  }
+
+  Future<void> _loadSavedData() async {
+    final preferences = await SharedPreferences.getInstance();
+    final appointmentJson = preferences.getString(_appointmentsKey);
+    final queueJson = preferences.getString(_queueKey);
+
+    if (appointmentJson != null) {
+      final decoded = jsonDecode(appointmentJson) as List<dynamic>;
+      _appointments
+        ..clear()
+        ..addAll(decoded.map((item) => Appointment.fromJson(item as Map<String, dynamic>)));
+    }
+
+    if (queueJson != null) {
+      final decoded = jsonDecode(queueJson) as List<dynamic>;
+      _queue
+        ..clear()
+        ..addAll(decoded.map((item) => QueuePatient.fromJson(item as Map<String, dynamic>)));
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _saveAppointments() async {
+    final preferences = await SharedPreferences.getInstance();
+    final encoded = jsonEncode(_appointments.map((item) => item.toJson()).toList());
+    await preferences.setString(_appointmentsKey, encoded);
+  }
+
+  Future<void> _saveQueue() async {
+    final preferences = await SharedPreferences.getInstance();
+    final encoded = jsonEncode(_queue.map((item) => item.toJson()).toList());
+    await preferences.setString(_queueKey, encoded);
+  }
+
+  Future<void> _saveAllData() async {
+    await Future.wait([_saveAppointments(), _saveQueue()]);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final screens = [_buildDashboard(), _buildAppointments(), _buildQueue()];
 
@@ -103,7 +156,9 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
           ),
         ],
       ),
-      body: screens[_selectedIndex],
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : screens[_selectedIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
@@ -760,6 +815,21 @@ class Appointment {
     required this.doctor,
   });
 
+  Appointment.fromJson(Map<String, dynamic> json)
+      : patientName = json['patientName'] as String,
+        time = json['time'] as String,
+        status = json['status'] as String,
+        doctor = json['doctor'] as String;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'patientName': patientName,
+      'time': time,
+      'status': status,
+      'doctor': doctor,
+    };
+  }
+
   String patientName;
   String time;
   String status;
@@ -772,6 +842,19 @@ class QueuePatient {
     required this.priority,
     required this.status,
   });
+
+  QueuePatient.fromJson(Map<String, dynamic> json)
+      : name = json['name'] as String,
+        priority = json['priority'] as String,
+        status = json['status'] as String;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'priority': priority,
+      'status': status,
+    };
+  }
 
   String name;
   String priority;
