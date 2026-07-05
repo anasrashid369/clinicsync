@@ -31,11 +31,30 @@ class ClinicSyncHomePage extends StatefulWidget {
 
 class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
   int _selectedIndex = 0;
+  String _appointmentSearch = '';
+  String _appointmentStatusFilter = 'All';
+  String _queueSearch = '';
+  String _queueStatusFilter = 'All';
 
   final List<Appointment> _appointments = [
-    Appointment(patientName: 'Aisha Khan', time: '09:00', status: 'Confirmed', doctor: 'Dr. Rana'),
-    Appointment(patientName: 'Noor Ali', time: '10:30', status: 'Checked In', doctor: 'Dr. Malik'),
-    Appointment(patientName: 'Zainab Noor', time: '11:15', status: 'Pending', doctor: 'Dr. Amina'),
+    Appointment(
+      patientName: 'Aisha Khan',
+      time: '09:00',
+      status: 'Confirmed',
+      doctor: 'Dr. Rana',
+    ),
+    Appointment(
+      patientName: 'Noor Ali',
+      time: '10:30',
+      status: 'Checked In',
+      doctor: 'Dr. Malik',
+    ),
+    Appointment(
+      patientName: 'Zainab Noor',
+      time: '11:15',
+      status: 'Pending',
+      doctor: 'Dr. Amina',
+    ),
   ];
 
   final List<QueuePatient> _queue = [
@@ -44,28 +63,41 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
     QueuePatient(name: 'Bilal A.', priority: 'Normal', status: 'Waiting'),
   ];
 
+  static const _appointmentStatusOptions = [
+    'All',
+    'Pending',
+    'Confirmed',
+    'Checked In',
+  ];
+  static const _queueStatusOptions = [
+    'All',
+    'Waiting',
+    'In Progress',
+    'Completed',
+  ];
+  static const _priorityOptions = ['Urgent', 'Normal'];
+
   @override
   Widget build(BuildContext context) {
-    final screens = [
-      _buildDashboard(),
-      _buildAppointments(),
-      _buildQueue(),
-    ];
+    final screens = [_buildDashboard(), _buildAppointments(), _buildQueue()];
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ClinicSync'),
+        title: Text(_appBarTitle()),
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'appointment') {
-                _showAddAppointmentDialog();
+                _showAddOrEditAppointmentDialog();
               } else if (value == 'queue') {
-                _showAddQueueDialog();
+                _showAddOrEditQueueDialog();
               }
             },
             itemBuilder: (context) => const [
-              PopupMenuItem(value: 'appointment', child: Text('Add appointment')),
+              PopupMenuItem(
+                value: 'appointment',
+                child: Text('Add appointment'),
+              ),
               PopupMenuItem(value: 'queue', child: Text('Add queue patient')),
             ],
           ),
@@ -78,70 +110,161 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
           setState(() => _selectedIndex = index);
         },
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
-          NavigationDestination(icon: Icon(Icons.event_available_outlined), label: 'Appointments'),
-          NavigationDestination(icon: Icon(Icons.people_outline), label: 'Queue'),
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            label: 'Dashboard',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.event_available_outlined),
+            label: 'Appointments',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.people_outline),
+            label: 'Queue',
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddAppointmentDialog,
+        onPressed: _selectedIndex == 2
+            ? _showAddOrEditQueueDialog
+            : _showAddOrEditAppointmentDialog,
         icon: const Icon(Icons.add),
-        label: const Text('New appointment'),
+        label: Text(_selectedIndex == 2 ? 'New queue' : 'New appointment'),
       ),
     );
   }
 
+  String _appBarTitle() {
+    switch (_selectedIndex) {
+      case 1:
+        return 'Appointments';
+      case 2:
+        return 'Queue';
+      default:
+        return 'ClinicSync';
+    }
+  }
+
   Widget _buildDashboard() {
-    final checkedInCount = _appointments.where((item) => item.status == 'Checked In').length;
-    final waitingCount = _queue.where((item) => item.status == 'Waiting').length;
+    final checkedInCount = _appointments
+        .where((item) => item.status == 'Checked In')
+        .length;
+    final waitingCount = _queue
+        .where((item) => item.status == 'Waiting')
+        .length;
+    final completedQueueCount = _queue
+        .where((item) => item.status == 'Completed')
+        .length;
+    final upcoming = _appointments.take(3).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Today queue', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          const Text(
+            'Today queue',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
-          const Text('Keep clinic operations moving with a quick overview.'),
+          const Text('Monitor appointments and queue status in one place.'),
           const SizedBox(height: 16),
           Wrap(
             spacing: 12,
             runSpacing: 12,
             children: [
-              _summaryCard('Appointments', '${_appointments.length}', Icons.calendar_today_outlined),
-              _summaryCard('Checked In', '$checkedInCount', Icons.check_circle_outline),
-              _summaryCard('Waiting', '$waitingCount', Icons.hourglass_top_outlined),
+              _summaryCard(
+                'Appointments',
+                '${_appointments.length}',
+                Icons.calendar_today_outlined,
+              ),
+              _summaryCard(
+                'Checked In',
+                '$checkedInCount',
+                Icons.check_circle_outline,
+              ),
+              _summaryCard(
+                'Waiting',
+                '$waitingCount',
+                Icons.hourglass_top_outlined,
+              ),
+              _summaryCard(
+                'Completed',
+                '$completedQueueCount',
+                Icons.done_all_outlined,
+              ),
             ],
           ),
           const SizedBox(height: 20),
-          const Text('Upcoming appointments', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          ..._appointments.take(2).map(
-            (appointment) => Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            appointment.patientName,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${appointment.time} - ${appointment.doctor}',
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Chip(label: Text(appointment.status)),
-                  ],
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Upcoming appointments',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
+              ),
+              FilledButton.tonal(
+                onPressed: () => setState(() => _selectedIndex = 1),
+                child: const Text('View all'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (upcoming.isEmpty)
+            const Text('No appointments scheduled yet.')
+          else
+            ...upcoming.map(
+              (appointment) => Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              appointment.patientName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${appointment.time} • ${appointment.doctor}',
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      _statusChip(appointment.status),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: 24),
+          const Text(
+            'Clinic highlights',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'Staff tip',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Use the queue screen to keep consultation rooms occupied and reduce patient wait time.',
+                  ),
+                ],
               ),
             ),
           ),
@@ -151,91 +274,228 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
   }
 
   Widget _buildAppointments() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _appointments.length,
-      itemBuilder: (context, index) {
-        final appointment = _appointments[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        appointment.patientName,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${appointment.time} - ${appointment.doctor}',
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    ],
-                  ),
+    final filtered = _appointments.where((appointment) {
+      final searchMatch =
+          appointment.patientName.toLowerCase().contains(
+            _appointmentSearch.toLowerCase(),
+          ) ||
+          appointment.doctor.toLowerCase().contains(
+            _appointmentSearch.toLowerCase(),
+          );
+      final statusMatch =
+          _appointmentStatusFilter == 'All' ||
+          appointment.status == _appointmentStatusFilter;
+      return searchMatch && statusMatch;
+    }).toList();
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Column(
+            children: [
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Search appointments',
+                  prefixIcon: Icon(Icons.search),
                 ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Chip(label: Text(appointment.status)),
-                    const SizedBox(height: 4),
-                    TextButton(
-                      onPressed: () {
-                        setState(() {
-                          appointment.status = appointment.status == 'Pending' ? 'Confirmed' : 'Checked In';
-                        });
-                      },
-                      child: const Text('Advance'),
-                    ),
-                  ],
+                onChanged: (value) =>
+                    setState(() => _appointmentSearch = value),
+              ),
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _appointmentStatusOptions.map((status) {
+                    final selected = status == _appointmentStatusFilter;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(status),
+                        selected: selected,
+                        onSelected: (_) =>
+                            setState(() => _appointmentStatusFilter = status),
+                      ),
+                    );
+                  }).toList(),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+        Expanded(
+          child: filtered.isEmpty
+              ? const Center(child: Text('No matching appointments found.'))
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final appointment = filtered[index];
+                    final originalIndex = _appointments.indexOf(appointment);
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    appointment.patientName,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                _statusChip(appointment.status),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${appointment.time} • ${appointment.doctor}',
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: () =>
+                                      _showAddOrEditAppointmentDialog(
+                                        appointment: appointment,
+                                      ),
+                                  child: const Text('Edit'),
+                                ),
+                                TextButton(
+                                  onPressed: () => _showConfirmDelete(
+                                    title: 'Delete appointment',
+                                    message:
+                                        'Remove this appointment from the schedule?',
+                                    onConfirm: () {
+                                      setState(() {
+                                        _appointments.removeAt(originalIndex);
+                                      });
+                                    },
+                                  ),
+                                  child: const Text('Delete'),
+                                ),
+                                const SizedBox(width: 8),
+                                FilledButton(
+                                  onPressed: () =>
+                                      _advanceAppointmentStatus(originalIndex),
+                                  child: const Text('Advance'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 
   Widget _buildQueue() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _queue.length,
-      itemBuilder: (context, index) {
-        final patient = _queue[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            title: Text(patient.name),
-            subtitle: Text(patient.priority),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Chip(label: Text(patient.status)),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.arrow_forward),
-                  onPressed: () {
-                    setState(() {
-                      final nextStatus = patient.status == 'Waiting' ? 'In Progress' : 'Completed';
-                      _queue[index] = QueuePatient(
-                        name: patient.name,
-                        priority: patient.priority,
-                        status: nextStatus,
-                      );
-                    });
+    final filtered = _queue.where((patient) {
+      final searchMatch = patient.name.toLowerCase().contains(
+        _queueSearch.toLowerCase(),
+      );
+      final statusMatch =
+          _queueStatusFilter == 'All' || patient.status == _queueStatusFilter;
+      return searchMatch && statusMatch;
+    }).toList();
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Column(
+            children: [
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Search queue',
+                  prefixIcon: Icon(Icons.search),
+                ),
+                onChanged: (value) => setState(() => _queueSearch = value),
+              ),
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _queueStatusOptions.map((status) {
+                    final selected = status == _queueStatusFilter;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(status),
+                        selected: selected,
+                        onSelected: (_) =>
+                            setState(() => _queueStatusFilter = status),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: filtered.isEmpty
+              ? const Center(child: Text('No patients currently in queue.'))
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final patient = filtered[index];
+                    final originalIndex = _queue.indexOf(patient);
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        title: Text(patient.name),
+                        subtitle: Text(
+                          '${patient.priority} priority • ${patient.status}',
+                        ),
+                        trailing: PopupMenuButton<String>(
+                          onSelected: (value) {
+                            if (value == 'edit') {
+                              _showAddOrEditQueueDialog(patient: patient);
+                            } else if (value == 'delete') {
+                              _showConfirmDelete(
+                                title: 'Remove from queue',
+                                message: 'Delete this patient from the queue?',
+                                onConfirm: () {
+                                  setState(() {
+                                    _queue.removeAt(originalIndex);
+                                  });
+                                },
+                              );
+                            } else if (value == 'next') {
+                              _advanceQueueStatus(originalIndex);
+                            }
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: 'next',
+                              child: Text('Advance status'),
+                            ),
+                            PopupMenuItem(value: 'edit', child: Text('Edit')),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
                   },
                 ),
-              ],
-            ),
-          ),
-        );
-      },
+        ),
+      ],
     );
   }
 
@@ -250,7 +510,13 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
             children: [
               Icon(icon, color: Theme.of(context).colorScheme.primary),
               const SizedBox(height: 8),
-              Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               Text(title),
             ],
           ),
@@ -259,17 +525,62 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
     );
   }
 
-  Future<void> _showAddAppointmentDialog() async {
-    final nameController = TextEditingController();
-    final doctorController = TextEditingController();
-    final timeController = TextEditingController();
-    String status = 'Confirmed';
+  Widget _statusChip(String status) {
+    final color = switch (status) {
+      'Pending' => Colors.orange,
+      'Confirmed' => Colors.blue,
+      'Checked In' => Colors.green,
+      'Waiting' => Colors.orange,
+      'In Progress' => Colors.blue,
+      'Completed' => Colors.green,
+      _ => Colors.grey,
+    };
+    return Chip(
+      backgroundColor: color.withOpacity(0.14),
+      label: Text(status, style: TextStyle(color: color)),
+    );
+  }
+
+  void _advanceAppointmentStatus(int index) {
+    setState(() {
+      final current = _appointments[index].status;
+      _appointments[index].status = current == 'Pending'
+          ? 'Confirmed'
+          : current == 'Confirmed'
+          ? 'Checked In'
+          : 'Checked In';
+    });
+  }
+
+  void _advanceQueueStatus(int index) {
+    setState(() {
+      final current = _queue[index].status;
+      _queue[index].status = current == 'Waiting'
+          ? 'In Progress'
+          : current == 'In Progress'
+          ? 'Completed'
+          : 'Completed';
+    });
+  }
+
+  Future<void> _showAddOrEditAppointmentDialog({
+    Appointment? appointment,
+  }) async {
+    final nameController = TextEditingController(
+      text: appointment?.patientName ?? '',
+    );
+    final doctorController = TextEditingController(
+      text: appointment?.doctor ?? '',
+    );
+    final timeController = TextEditingController(text: appointment?.time ?? '');
+    var status = appointment?.status ?? 'Confirmed';
+    final isEditing = appointment != null;
 
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('New appointment'),
+          title: Text(isEditing ? 'Edit appointment' : 'New appointment'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -291,13 +602,17 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
               DropdownButtonFormField<String>(
                 value: status,
                 items: const [
-                  DropdownMenuItem(value: 'Confirmed', child: Text('Confirmed')),
-                  DropdownMenuItem(value: 'Checked In', child: Text('Checked In')),
+                  DropdownMenuItem(
+                    value: 'Confirmed',
+                    child: Text('Confirmed'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Checked In',
+                    child: Text('Checked In'),
+                  ),
                   DropdownMenuItem(value: 'Pending', child: Text('Pending')),
                 ],
-                onChanged: (value) {
-                  status = value ?? 'Confirmed';
-                },
+                onChanged: (value) => status = value ?? 'Confirmed',
                 decoration: const InputDecoration(labelText: 'Status'),
               ),
             ],
@@ -309,21 +624,36 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
             ),
             FilledButton(
               onPressed: () {
-                if (nameController.text.trim().isNotEmpty) {
-                  setState(() {
+                final name = nameController.text.trim();
+                if (name.isEmpty) return;
+                setState(() {
+                  if (isEditing) {
+                    appointment!.patientName = name;
+                    appointment.doctor = doctorController.text.trim().isEmpty
+                        ? appointment.doctor
+                        : doctorController.text.trim();
+                    appointment.time = timeController.text.trim().isEmpty
+                        ? appointment.time
+                        : timeController.text.trim();
+                    appointment.status = status;
+                  } else {
                     _appointments.add(
                       Appointment(
-                        patientName: nameController.text.trim(),
-                        time: timeController.text.trim().isEmpty ? 'TBD' : timeController.text.trim(),
+                        patientName: name,
+                        time: timeController.text.trim().isEmpty
+                            ? 'TBD'
+                            : timeController.text.trim(),
                         status: status,
-                        doctor: doctorController.text.trim().isEmpty ? 'Assigned doctor' : doctorController.text.trim(),
+                        doctor: doctorController.text.trim().isEmpty
+                            ? 'Assigned doctor'
+                            : doctorController.text.trim(),
                       ),
                     );
-                  });
-                }
+                  }
+                });
                 Navigator.of(dialogContext).pop();
               },
-              child: const Text('Save'),
+              child: Text(isEditing ? 'Save' : 'Create'),
             ),
           ],
         );
@@ -331,15 +661,16 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
     );
   }
 
-  Future<void> _showAddQueueDialog() async {
-    final nameController = TextEditingController();
-    String priority = 'Normal';
+  Future<void> _showAddOrEditQueueDialog({QueuePatient? patient}) async {
+    final nameController = TextEditingController(text: patient?.name ?? '');
+    var priority = patient?.priority ?? 'Normal';
+    final isEditing = patient != null;
 
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Add queue patient'),
+          title: Text(isEditing ? 'Edit queue patient' : 'Add queue patient'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -350,13 +681,10 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 value: priority,
-                items: const [
-                  DropdownMenuItem(value: 'Urgent', child: Text('Urgent')),
-                  DropdownMenuItem(value: 'Normal', child: Text('Normal')),
-                ],
-                onChanged: (value) {
-                  priority = value ?? 'Normal';
-                },
+                items: _priorityOptions.map((option) {
+                  return DropdownMenuItem(value: option, child: Text(option));
+                }).toList(),
+                onChanged: (value) => priority = value ?? 'Normal',
                 decoration: const InputDecoration(labelText: 'Priority'),
               ),
             ],
@@ -368,20 +696,54 @@ class _ClinicSyncHomePageState extends State<ClinicSyncHomePage> {
             ),
             FilledButton(
               onPressed: () {
-                if (nameController.text.trim().isNotEmpty) {
-                  setState(() {
+                final name = nameController.text.trim();
+                if (name.isEmpty) return;
+                setState(() {
+                  if (isEditing) {
+                    patient!.name = name;
+                    patient.priority = priority;
+                  } else {
                     _queue.add(
                       QueuePatient(
-                        name: nameController.text.trim(),
+                        name: name,
                         priority: priority,
                         status: 'Waiting',
                       ),
                     );
-                  });
-                }
+                  }
+                });
                 Navigator.of(dialogContext).pop();
               },
-              child: const Text('Add'),
+              child: Text(isEditing ? 'Save' : 'Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showConfirmDelete({
+    required String title,
+    required String message,
+    required VoidCallback onConfirm,
+  }) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                onConfirm();
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('Confirm'),
             ),
           ],
         );
